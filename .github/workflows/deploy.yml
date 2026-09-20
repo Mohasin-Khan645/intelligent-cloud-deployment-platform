@@ -1,0 +1,132 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: intelligent-cloud-demo-app
+  ECS_CLUSTER: intelligent-cloud-cluster
+  ECS_SERVICE: intelligent-demo-service
+  CONTAINER_NAME: demo-app
+
+jobs:
+  deploy:
+    name: Build, Push and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------
+      # 1. Checkout repository
+      # ----------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # 2. Setup Node.js
+      # ----------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: application/demo-app/package-lock.json
+
+      # ----------------------------------------
+      # 3. Install dependencies
+      # ----------------------------------------
+      - name: Install dependencies
+        working-directory: application/demo-app
+        run: npm ci
+
+      # ----------------------------------------
+      # 4. Run tests
+      # ----------------------------------------
+      - name: Run tests
+        working-directory: application/demo-app
+        run: npm test
+
+      # ----------------------------------------
+      # 5. Configure AWS using GitHub OIDC
+      # ----------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::688674375439:role/GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ----------------------------------------
+      # 6. Login to Amazon ECR
+      # ----------------------------------------
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ----------------------------------------
+      # 7. Build Docker image
+      # ----------------------------------------
+      - name: Build Docker image
+        working-directory: application/demo-app
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            .
+
+      # ----------------------------------------
+      # 8. Push Docker image to ECR
+      # ----------------------------------------
+      - name: Push Docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # ----------------------------------------
+      # 9. Download current ECS task definition
+      # ----------------------------------------
+      - name: Download ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition intelligent-cloud-demo-app \
+            --query taskDefinition \
+            --output json > task-definition.json
+
+      # ----------------------------------------
+      # 10. Update container image
+      # ----------------------------------------
+      - name: Render new ECS task definition
+        id: render-task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      # ----------------------------------------
+      # 11. Deploy to ECS
+      # ----------------------------------------
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      # ----------------------------------------
+      # 12. Deployment completed
+      # ----------------------------------------
+      - name: Deployment successful
+        run: |
+          echo "Deployment completed successfully."
+          echo "Commit: $GITHUB_SHA"
