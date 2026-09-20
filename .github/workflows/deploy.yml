@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # ----------------------------------------
       # 1. Checkout repository
       # ----------------------------------------
@@ -61,6 +62,9 @@ jobs:
           role-to-assume: arn:aws:iam::688674375439:role/GitHubActionsDeploymentRole
           aws-region: ${{ env.AWS_REGION }}
 
+      # ----------------------------------------
+      # 5.1 Display deployment context
+      # ----------------------------------------
       - name: Display deployment context
         run: |
           echo "Repository: $GITHUB_REPOSITORY"
@@ -85,7 +89,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
-            -t $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             .
 
       # ----------------------------------------
@@ -96,7 +100,24 @@ jobs:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "Checking whether image already exists in ECR..."
+
+          EXISTING_TAG=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$IMAGE_TAG" \
+            --region "$AWS_REGION" \
+            --query 'images[0].imageId.imageTag' \
+            --output text 2>/dev/null || true)
+
+          if [ "$EXISTING_TAG" = "$IMAGE_TAG" ]; then
+            echo "Image already exists in ECR."
+            echo "Skipping push because ECR tags are immutable."
+            echo "Image: $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          else
+            echo "Image does not exist in ECR."
+            echo "Pushing image..."
+            docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          fi
 
       # ----------------------------------------
       # 9. Download current ECS task definition
@@ -137,3 +158,4 @@ jobs:
         run: |
           echo "Deployment completed successfully."
           echo "Commit: $GITHUB_SHA"
+          echo "ECR Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
