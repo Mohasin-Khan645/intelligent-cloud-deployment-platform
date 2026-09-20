@@ -61,6 +61,13 @@ jobs:
           role-to-assume: arn:aws:iam::688674375439:role/GitHubActionsDeploymentRole
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Display deployment context
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $GITHUB_SHA"
+          echo "Workflow: $GITHUB_WORKFLOW"
+
       # ----------------------------------------
       # 6. Login to Amazon ECR
       # ----------------------------------------
