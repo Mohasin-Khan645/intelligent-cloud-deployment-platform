@@ -1,41 +1,50 @@
-const express = require('express');
+const express = require("express");
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
-const VERSION = '1.0.0';
+const APP_VERSION = process.env.APP_VERSION || "1.0.0";
 
 app.use(express.json());
 
-// 1. Root route
-app.get('/', (req, res) => {
-  res.status(200).json({
-    application: 'Demo Application',
-    message: 'Application deployed successfully',
-    version: VERSION
+// Application identification header
+app.use((req, res, next) => {
+  res.setHeader("X-Application", "intelligent-cloud-demo-app");
+  next();
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    application: "Demo Application",
+    message: "Application deployed successfully",
+    version: APP_VERSION
   });
 });
 
-// 2. Health check route
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.status(200).json({
-    status: 'healthy'
+    status: "healthy"
   });
 });
 
-// 3. API Version route
-app.get('/api/version', (req, res) => {
-  res.status(200).json({
-    version: VERSION
+app.get("/api/version", (req, res) => {
+  res.json({
+    version: APP_VERSION
   });
 });
 
-// Only listen when not in test mode
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Demo Application service listening on port ${PORT}`);
-    console.log(`Health endpoint: http://localhost:${PORT}/health`);
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found"
+  });
+});
+
+if (require.main === module) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(
+      `Demo application running on http://0.0.0.0:${PORT}`
+    );
   });
 }
 
 module.exports = app;
-
