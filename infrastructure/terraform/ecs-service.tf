@@ -7,6 +7,17 @@ resource "aws_ecs_service" "demo_app" {
 
   launch_type = "FARGATE"
 
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  lifecycle {
+    ignore_changes = [
+      task_definition
+    ]
+  }
+
   network_configuration {
     subnets = [
       aws_subnet.public_a.id,

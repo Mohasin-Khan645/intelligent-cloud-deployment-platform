@@ -49,3 +49,7 @@ Thumbs.db
 .aws/
 *.pem
 *.key
+
+# Local AWS/IAM setup files
+github-actions-trust-policy.json
+github-actions-deployment-policy.json
