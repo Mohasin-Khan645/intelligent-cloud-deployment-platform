@@ -1,5 +1,9 @@
 name: Build and Deploy
 
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
 on:
   push:
     branches:
@@ -146,12 +150,31 @@ jobs:
       # 11. Deploy to ECS
       # ----------------------------------------
       - name: Deploy to Amazon ECS
+        id: deploy-ecs
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+          wait-max-delay-seconds: 15
+          max-retries: 3
+
+
+      - name: Verify ECS deployment
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECS_CLUSTER: ${{ env.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ env.ECS_SERVICE }}
+        run: |
+          echo "Checking ECS service state..."
+
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].{Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount,TaskDefinition:taskDefinition,Deployments:deployments[*].{Status:status,TaskDefinition:taskDefinition,Desired:desiredCount,Running:runningCount,Pending:pendingCount,Failed:failedTasks,RolloutState:rolloutState,RolloutReason:rolloutStateReason}}' \
+          --output table
 
       # ----------------------------------------
       # 12. Deployment completed
