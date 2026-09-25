@@ -1,13 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const awsRoutes = require('./routes/awsRoutes');
+const githubActionsRoutes = require('./routes/githubActionsRoutes');
 require('dotenv').config();
+const deploymentAutoSyncService =
+  require('./services/deploymentAutoSyncService');
 
 const logger = require('./utils/logger');
 const { notFoundHandler, globalErrorHandler } = require('./middleware/errorHandler');
 const authenticateToken = require('./middleware/auth');
 const deploymentController = require('./controllers/deploymentController');
-
+  
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
@@ -39,6 +43,8 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/deployments', deploymentRoutes);
 app.use('/api/environments', environmentRoutes);
 app.get('/api/monitoring', authenticateToken, deploymentController.getMonitoringMetrics);
+app.use('/api/aws', awsRoutes);
+app.use('/api/github', githubActionsRoutes);
 
 // 404 & Global Error Handlers
 app.use(notFoundHandler);
@@ -47,8 +53,17 @@ app.use(globalErrorHandler);
 // Start server only when not required by test suite
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    logger.info(`Intelligent Cloud Deployment Platform Backend running on port ${PORT}`);
-    logger.info(`Health check available at http://localhost:${PORT}/api/health`);
+    logger.info(
+      `Intelligent Cloud Deployment Platform Backend running on port ${PORT}`
+    );
+
+    logger.info(
+      `Health check available at http://localhost:${PORT}/api/health`
+    );
+
+    deploymentAutoSyncService.startDeploymentAutoSync(
+      10000
+    );
   });
 }
 
