@@ -16,8 +16,9 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   res.json({
     application: "Demo Application",
-    message: "Application deployed successfully - Phase 4 verification",
-    version: APP_VERSION
+    message: "Application deployed successfully",
+    version: APP_VERSION,
+    deploymentTest: "phase-4-verification"
   });
 });
 
