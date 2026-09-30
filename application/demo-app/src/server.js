@@ -24,7 +24,8 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.status(200).json({
-    status: "healthy"
+    status: "healthy",
+    deploymentTest: "phase-5-8-auto-rollback"
   });
 });
 
