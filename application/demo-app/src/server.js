@@ -13,6 +13,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Root endpoint
 app.get("/", (req, res) => {
   res.json({
     application: "Demo Application",
@@ -22,25 +23,28 @@ app.get("/", (req, res) => {
   });
 });
 
+// Health endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
-    status: "healthy",
-    deploymentTest: "phase-5-8-auto-rollback"
+    status: "healthy"
   });
 });
 
+// Version endpoint
 app.get("/api/version", (req, res) => {
   res.json({
     version: APP_VERSION
   });
 });
 
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     error: "Route not found"
   });
 });
 
+// Start server
 if (require.main === module) {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(
