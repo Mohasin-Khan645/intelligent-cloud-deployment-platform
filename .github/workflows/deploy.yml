@@ -35,6 +35,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+            # ----------------------------------------
+      # 1.1 Verify checked-out source
+      # ----------------------------------------
+      - name: Verify checked-out commit and health endpoint
+        working-directory: application/demo-app
+        run: |
+          echo "Git commit:"
+          git rev-parse HEAD
+
+          echo "Git branch:"
+          git branch --show-current
+
+          echo "Health endpoint source:"
+          grep -A5 -B2 'app.get("/health"' src/server.js
+
       # ----------------------------------------
       # 2. Setup Node.js
       # ----------------------------------------
