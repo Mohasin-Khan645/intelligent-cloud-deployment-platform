@@ -9,7 +9,7 @@ on:
     branches:
       - main
 
-  workflow_dispatch:    
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -35,20 +35,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-            # ----------------------------------------
+      # ----------------------------------------
       # 1.1 Verify checked-out source
       # ----------------------------------------
-      - name: Verify checked-out commit and health endpoint
-        working-directory: application/demo-app
+      - name: Verify checked-out source
         run: |
-          echo "Git commit:"
+          echo "===== COMMIT ====="
           git rev-parse HEAD
 
-          echo "Git branch:"
+          echo "===== BRANCH ====="
           git branch --show-current
 
-          echo "Health endpoint source:"
-          grep -A5 -B2 'app.get("/health"' src/server.js
+          echo "===== GITHUB SHA ====="
+          echo "$GITHUB_SHA"
+
+          echo "===== HEALTH ENDPOINT ====="
+          sed -n '/app.get("\/health"/,+6p' application/demo-app/src/server.js
+
+          echo "===== SEARCH OLD AUTO-ROLLBACK CODE ====="
+          grep -R -n 'phase-5-8-auto-rollback' application/demo-app || true
 
       # ----------------------------------------
       # 2. Setup Node.js
@@ -114,7 +119,7 @@ jobs:
             .
 
       # ----------------------------------------
-      # 8. Push Docker image to ECR
+      # 8. Push Docker image
       # ----------------------------------------
       - name: Push Docker image
         env:
@@ -175,7 +180,9 @@ jobs:
           wait-max-delay-seconds: 15
           max-retries: 3
 
-
+      # ----------------------------------------
+      # 11.1 Verify ECS deployment
+      # ----------------------------------------
       - name: Verify ECS deployment
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
@@ -189,7 +196,7 @@ jobs:
             --services "$ECS_SERVICE" \
             --region "$AWS_REGION" \
             --query 'services[0].{Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount,TaskDefinition:taskDefinition,Deployments:deployments[*].{Status:status,TaskDefinition:taskDefinition,Desired:desiredCount,Running:runningCount,Pending:pendingCount,Failed:failedTasks,RolloutState:rolloutState,RolloutReason:rolloutStateReason}}' \
-          --output table
+            --output table
 
       # ----------------------------------------
       # 12. Deployment completed
